@@ -41,13 +41,30 @@ async function samePassword(given, expected) {
 }
 
 /**
+ * The unit that wrong passwords are counted against: an IPv4 address, or the
+ * /64 an IPv6 address belongs to. One subscriber usually holds a whole /64, so
+ * counting single IPv6 addresses would let them keep guessing from fresh ones.
+ */
+export function clientBucket(ip) {
+  const text = String(ip ?? '').trim().toLowerCase();
+  if (!text.includes(':')) return text || 'unknown';
+  const mapped = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/.exec(text);
+  if (mapped) return mapped[1];
+  const [head, tail = ''] = text.split('::');
+  const left = head ? head.split(':') : [];
+  const right = tail ? tail.split(':') : [];
+  const groups = text.includes('::') ? [...left, ...Array(Math.max(0, 8 - left.length - right.length)).fill('0'), ...right] : left;
+  if (groups.length !== 8 || groups.some((g) => !/^[0-9a-f]{1,4}$/.test(g))) return 'unknown';
+  return `${groups.slice(0, 4).map((g) => g.replace(/^0+(?=.)/, '')).join(':')}::/64`;
+}
+
+/**
  * Returns null when the request carries the right password, otherwise the
  * Response to send back. Repeated failures from one address are locked out.
  */
 export async function authorize(request, env) {
   if (!enabled(env)) return json({ error: 'sync is not set up on this site' }, 404);
-  const ip = request.headers.get('cf-connecting-ip') ?? 'unknown';
-  const failKey = `fail:${ip}`;
+  const failKey = `fail:${clientBucket(request.headers.get('cf-connecting-ip'))}`;
   const fails = Number((await env.SYNC.get(failKey)) ?? 0);
   if (fails >= MAX_FAILS) return json({ error: 'too many attempts; try again in 15 minutes' }, 429);
 

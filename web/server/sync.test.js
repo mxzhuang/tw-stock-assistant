@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { changePush, cleanProfile, getMe, putMe, status } from './sync.js';
+import { changePush, cleanProfile, clientBucket, getMe, putMe, status } from './sync.js';
 
 function fakeEnv(password = 'correct horse') {
   const store = new Map();
@@ -76,5 +76,21 @@ describe('cloud sync', () => {
     expect((await changePush(req('POST', 'correct horse', { subscription: { endpoint: 'http://x' } }), env)).status).toBe(400);
     expect(await (await changePush(req('DELETE', 'correct horse', { subscription: sub }), env)).json()).toEqual({ devices: 0 });
     expect(JSON.parse(env.store.get('push')).vapid.pub).toBe(key);
+  });
+  it('counts wrong passwords per IPv4 address or IPv6 /64', async () => {
+    expect(clientBucket('1.2.3.4')).toBe('1.2.3.4');
+    expect(clientBucket('2001:db8:1:2:aaaa:bbbb:cccc:dddd')).toBe('2001:db8:1:2::/64');
+    expect(clientBucket('2001:0DB8:0001:0002::1')).toBe('2001:db8:1:2::/64');
+    expect(clientBucket('2001:db8::1')).toBe('2001:db8:0:0::/64');
+    expect(clientBucket('::ffff:1.2.3.4')).toBe('1.2.3.4');
+    expect(clientBucket('not an address:')).toBe('unknown');
+    expect(clientBucket(null)).toBe('unknown');
+
+    // Guessing from fresh addresses inside one /64 still runs into the lockout.
+    const env = fakeEnv();
+    let last;
+    for (let i = 0; i < 11; i++) last = await getMe(req('GET', 'wrong', undefined, `2001:db8:1:2::${(i + 1).toString(16)}`), env);
+    expect(last.status).toBe(429);
+    expect((await getMe(req('GET', 'correct horse', undefined, '2001:db8:1:3::1'), env)).status).toBe(200);
   });
 });

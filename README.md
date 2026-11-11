@@ -110,8 +110,10 @@ accounts. Nothing is shared with anyone else's copy.
   *Account → Cloudflare Pages → Edit*. For sync also add
   *Account → Workers KV Storage → Edit*. The account ID is shown under
   Workers & Pages.
-- **`SYNC_PASSWORD`**: any password you choose. You type it once on each
-  device. It protects your holdings from being changed by other visitors.
+- **`SYNC_PASSWORD`**: a password you choose. You type it once on each
+  device, so make it long and random (16 characters or more, from a password
+  manager). It is the only thing between other visitors and your holdings;
+  wrong guesses are rate-limited, but a short password can still be guessed.
 - **`CLAUDE_CODE_OAUTH_TOKEN`**: run `claude setup-token` on your computer
   (needs a Claude subscription).
 

@@ -90,7 +90,7 @@ cd web && npm ci --ignore-scripts && npm run dev
 | 再加 `CLAUDE_CODE_OAUTH_TOKEN` | 摘要改由 Claude Code 撰寫，會查當天新聞，並參考公開的財經 skill（見 `skills/README.md`） |
 
 - Cloudflare token：dashboard → My Profile → API Tokens，權限要有 *Account → Cloudflare Pages → Edit*。要用同步的話再加 *Account → Workers KV Storage → Edit*。Account ID 在 Workers & Pages 頁面看得到。
-- `SYNC_PASSWORD`：自己取一組密碼，每台裝置輸入一次。有了它，其他訪客就改不到你的持股。
+- `SYNC_PASSWORD`：自己取一組密碼，每台裝置只要輸入一次，所以請用又長又亂的（16 個字元以上，用密碼管理器產生最省事）。別人能不能看到、改到你的持股就靠這組密碼；猜錯太多次會被暫時鎖住，但太短的密碼還是猜得出來。
 - `CLAUDE_CODE_OAUTH_TOKEN`：在電腦上執行 `claude setup-token` 取得，需要有 Claude 訂閱。
 
 3. 到 Actions 頁面手動執行一次 **daily**。之後平日台北時間 08:30 和 14:40 會自動跑。
