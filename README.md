@@ -1,4 +1,4 @@
-# tw-invest-assistant
+# tw-stock-assistant
 
 A personal assistant for Taiwan stocks and ETFs.
 
@@ -75,8 +75,8 @@ search box; that list is stored in the browser.
 ## Run locally
 
 ```bash
-git clone --recurse-submodules https://github.com/mxzhuang/tw-invest-assistant.git
-cd tw-invest-assistant
+git clone --recurse-submodules https://github.com/mxzhuang/tw-stock-assistant.git
+cd tw-stock-assistant
 
 python -m venv .venv && . .venv/bin/activate
 pip install -r vendor/daily_stock_analysis/requirements.txt -r requirements.txt
@@ -100,7 +100,7 @@ accounts. Nothing is shared with anyone else's copy.
 | Secrets | What you get |
 | --- | --- |
 | none | The workflow runs and keeps the built site as a downloadable artifact |
-| `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | A public site at `https://<repository-name>.pages.dev` with charts, screener, forecast and intraday quotes |
+| `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | A public site of your own with charts, screener, forecast and intraday quotes |
 | + `SYNC_PASSWORD` | Holdings and tracking list synced across your devices, a personal briefing, and risk notifications |
 | + `CLAUDE_CODE_OAUTH_TOKEN` | Briefings written by Claude Code with current news, following published finance skills (see `skills/README.md`) |
 
@@ -118,7 +118,10 @@ accounts. Nothing is shared with anyone else's copy.
 4. Edit `config/universe.yaml` and `config/watchlist.yaml` to choose what is
    analysed. Those are the only files you need to change.
 
-To use a different site name, set a repository variable `PAGES_PROJECT`.
+Your site's address is printed at the end of each run and shown under
+**Deployments** on the repository page. It is `https://<repository-name>.pages.dev`
+when that name is free; if someone else already has it, Cloudflare adds a short
+suffix. To choose the name yourself, set a repository variable `PAGES_PROJECT`.
 The briefing uses Claude Sonnet by default; set a repository variable
 `BRIEFING_MODEL` (for example `opus`) to change it. If the chosen model is
 not available on your plan, the run falls back to Claude Code's default model.
@@ -142,7 +145,7 @@ Repositories made from a template do not follow the original. To pull in later
 changes:
 
 ```bash
-git remote add upstream https://github.com/mxzhuang/tw-invest-assistant.git
+git remote add upstream https://github.com/mxzhuang/tw-stock-assistant.git
 git fetch upstream && git merge upstream/main
 ```
 

@@ -1,5 +1,5 @@
 [project]
-name = "tw-invest-assistant"
+name = "tw-stock-assistant"
 version = "0.1.0"
 description = "Taiwan stock & ETF assistant built on daily_stock_analysis"
 requires-python = ">=3.11"

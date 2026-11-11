@@ -17,7 +17,7 @@ const MAX_FALLBACK = 40; // stays under the per-request subrequest limit
 const MIS_HOME = 'https://mis.twse.com.tw/stock/index.jsp';
 const MIS_API = 'https://mis.twse.com.tw/stock/api/getStockInfo.jsp';
 const YAHOO = 'https://query1.finance.yahoo.com/v8/finance/chart/';
-const AGENT = 'Mozilla/5.0 (compatible; tw-invest-assistant)';
+const AGENT = 'Mozilla/5.0 (compatible; tw-stock-assistant)';
 
 export function misChannel(code) {
   if (INDEX[code]) return INDEX[code].mis;
