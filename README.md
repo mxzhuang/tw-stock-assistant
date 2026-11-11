@@ -1,5 +1,7 @@
 # tw-stock-assistant
 
+English | [繁體中文](README.zh-TW.md)
+
 A personal assistant for Taiwan stocks and ETFs.
 
 - **Overview**: market indices, your holdings and your tracking list on one
