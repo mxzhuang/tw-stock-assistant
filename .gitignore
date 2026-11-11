@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv*/
+.pytest_cache/
+*.egg-info/
+
+# Node
+node_modules/
+web/dist/
+*.tsbuildinfo
+
+# Generated data (produced by the pipeline, never committed)
+web/public/data/
+
+# Local secrets
+.env
+.env.*
+!.env.example
+.dev.vars
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+web/wrangler.toml

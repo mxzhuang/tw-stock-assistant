@@ -1,0 +1,10 @@
+# The list the web app starts with under 「追蹤」 before the user edits their own.
+# Every symbol here must also exist in universe.yaml or be listed with a name.
+stocks:
+  - {code: "0050.TW", name: "元大台灣50"}
+  - {code: "2330.TW", name: "台積電"}
+  - {code: "2317.TW", name: "鴻海"}
+  - {code: "2454.TW", name: "聯發科"}
+
+# Trading days of history to export for each chart.
+history_days: 500

@@ -1,0 +1,8 @@
+# Pipeline dependencies (on top of vendor/daily_stock_analysis/requirements.txt)
+TA-Lib>=0.6.4,<0.9
+PyYAML>=6.0
+pandas>=2.0
+numpy>=1.24
+scikit-learn>=1.5,<2
+pywebpush>=2.0,<3
+cryptography>=42

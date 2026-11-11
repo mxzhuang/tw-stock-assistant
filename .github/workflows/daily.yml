@@ -1,0 +1,247 @@
+name: daily
+
+on:
+  schedule:
+    # 00:30 UTC = 08:30 Asia/Taipei on weekdays, before the 09:00 open.
+    - cron: '30 0 * * 1-5'
+    # 06:40 UTC = 14:40 Asia/Taipei on weekdays, after the 13:30 close.
+    - cron: '40 6 * * 1-5'
+  push:
+    branches: [main]
+    paths:
+      - config/**
+      - pipeline/**
+      - skills/**
+      - web/**
+      - requirements.txt
+      - vendor/**
+      - .github/workflows/daily.yml
+  workflow_dispatch:
+    inputs:
+      demo:
+        description: Use synthetic prices instead of Yahoo Finance
+        type: boolean
+        default: false
+      briefing:
+        description: Write a new briefing and send the notification
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: daily
+  cancel-in-progress: false
+
+env:
+  # Optional repository variable; the site name defaults to the repository name.
+  PROJECT_OVERRIDE: ${{ vars.PAGES_PROJECT }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Shows the live site under "Deployments" on the repository page.
+    environment:
+      name: cloudflare-pages
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - name: Name the site
+        run: |
+          project="${PROJECT_OVERRIDE:-${GITHUB_REPOSITORY#*/}}"
+          project="$(printf '%s' "$project" | tr '[:upper:]_' '[:lower:]-')"
+          {
+            echo "PAGES_PROJECT=$project"
+            echo "SITE_URL=https://$project.pages.dev"
+            echo "SYNC_DIR=$RUNNER_TEMP/sync"
+          } >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/sync"
+
+      - name: Check out repository and submodule
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: true
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            vendor/daily_stock_analysis/requirements.txt
+
+      - name: Install Python dependencies
+        run: pip install -r vendor/daily_stock_analysis/requirements.txt -r requirements.txt pytest
+
+      - name: Test pipeline
+        run: python -m pytest
+
+      - name: Build chart data
+        env:
+          USE_DEMO: ${{ inputs.demo }}
+        run: |
+          if [ "$USE_DEMO" = "true" ]; then
+            python -m pipeline --demo
+          else
+            python -m pipeline
+          fi
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install web dependencies
+        working-directory: web
+        run: npm ci --ignore-scripts
+
+      # Cloud sync: the owner's holdings, tracking list, push devices and their
+      # personal briefing live in a Workers KV namespace in their own account.
+      # Skipped unless both the Cloudflare secrets and SYNC_PASSWORD are set.
+      - name: Prepare sync storage
+        id: sync
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          HAS_PASSWORD: ${{ secrets.SYNC_PASSWORD != '' }}
+        working-directory: web
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ] || [ "$HAS_PASSWORD" != "true" ]; then
+            echo "::notice::Cloud sync is off (needs the Cloudflare secrets and SYNC_PASSWORD)."
+            exit 0
+          fi
+          title="$PAGES_PROJECT-sync"
+          find_id() {
+            npx wrangler kv namespace list | python -c "
+          import json, sys
+          text = sys.stdin.read()
+          spaces = json.loads(text[text.index('['):text.rindex(']') + 1])
+          title = sys.argv[1]
+          print(next((n['id'] for n in spaces if n['title'] == title or n['title'].endswith('-' + title)), ''))
+          " "$title"
+          }
+          id="$(find_id)"
+          if [ -z "$id" ]; then
+            npx wrangler kv namespace create "$title" > /dev/null
+            id="$(find_id)"
+          fi
+          if [ -z "$id" ]; then
+            echo "::error::Could not create the sync storage. Does the API token have 'Workers KV Storage: Edit'?"
+            exit 1
+          fi
+          for key in profile push briefing; do
+            npx wrangler kv key get "$key" --namespace-id "$id" --remote > "$SYNC_DIR/$key.json" 2> /dev/null || : > "$SYNC_DIR/$key.json"
+          done
+          cat > wrangler.toml <<TOML
+          name = "$PAGES_PROJECT"
+          pages_build_output_dir = "dist"
+          compatibility_date = "2026-01-01"
+
+          [[kv_namespaces]]
+          binding = "SYNC"
+          id = "$id"
+          TOML
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+
+      # A new briefing is written on the two schedules (or on request). Other
+      # runs, such as a push, keep the one that is already live.
+      - name: Decide whether to write a briefing
+        id: brief
+        env:
+          EVENT: ${{ github.event_name }}
+          WANTED: ${{ inputs.briefing }}
+          HAS_CLAUDE: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
+        run: |
+          if [ "$EVENT" = "schedule" ] || [ "$WANTED" = "true" ]; then
+            echo "write=true" >> "$GITHUB_OUTPUT"
+            echo "claude=$HAS_CLAUDE" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Lets the app show which optional features are switched on. Only yes/no
+      # values are written, never a secret.
+      - name: Record which features are set up
+        env:
+          HAS_SYNC: ${{ steps.sync.outputs.id != '' }}
+          HAS_CLAUDE: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
+        run: |
+          printf '{"schema": 1, "sync": %s, "claude": %s}\n' "$HAS_SYNC" "$HAS_CLAUDE" > web/public/data/setup.json
+
+      - name: Keep the live general briefing
+        if: steps.brief.outputs.write != 'true'
+        run: |
+          out=web/public/data/briefing.json
+          curl -fsS --max-time 20 "$SITE_URL/data/briefing.json" -o "$out" || true
+          python -c "import json,sys; assert json.load(open(sys.argv[1]))['schema'] == 2" "$out" 2>/dev/null || rm -f "$out"
+
+      - name: Install Claude Code
+        if: steps.brief.outputs.claude == 'true'
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Write briefing
+        if: steps.brief.outputs.write == 'true'
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Repository variable BRIEFING_MODEL overrides this (for example: opus).
+          BRIEFING_MODEL: ${{ vars.BRIEFING_MODEL || 'sonnet' }}
+        run: |
+          python -m pipeline.briefing \
+            --profile "$SYNC_DIR/profile.json" \
+            --previous "$SYNC_DIR/briefing.json" \
+            --private-out "$SYNC_DIR/briefing.new.json"
+
+      - name: Build web app
+        working-directory: web
+        run: |
+          npm test
+          npm run build
+
+      - name: Keep the built site as an artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: site
+          path: web/dist
+          retention-days: 7
+
+      - name: Deploy to Cloudflare Pages
+        id: deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          SYNC_PASSWORD: ${{ secrets.SYNC_PASSWORD }}
+          SYNC_ID: ${{ steps.sync.outputs.id }}
+        working-directory: web
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::notice::Cloudflare secrets are not set; skipping deploy. The site is in the 'site' artifact."
+            exit 0
+          fi
+          if ! npx wrangler pages project list | grep -qw "$PAGES_PROJECT"; then
+            npx wrangler pages project create "$PAGES_PROJECT" --production-branch=main
+          fi
+          if [ -n "$SYNC_ID" ]; then
+            printf '%s' "$SYNC_PASSWORD" | npx wrangler pages secret put SYNC_PASSWORD --project-name="$PAGES_PROJECT"
+          fi
+          npx wrangler pages deploy dist --project-name="$PAGES_PROJECT" --branch=main
+          echo "url=$SITE_URL" >> "$GITHUB_OUTPUT"
+
+      # After the deploy, so the page already shows what a notification is about.
+      # A push is sent only for a new high-risk or strong-pick alert.
+      - name: Publish personal briefing and notify
+        if: steps.brief.outputs.write == 'true' && steps.sync.outputs.id != '' && steps.deploy.outputs.url != ''
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          SYNC_ID: ${{ steps.sync.outputs.id }}
+        run: |
+          new="$SYNC_DIR/briefing.new.json"
+          if [ ! -s "$new" ]; then
+            echo "No personal briefing this run."
+            exit 0
+          fi
+          (cd web && npx wrangler kv key put briefing --path "$new" --namespace-id "$SYNC_ID" --remote > /dev/null)
+          python -m pipeline.briefing --notify --private-out "$new" --push "$SYNC_DIR/push.json"
