@@ -14,6 +14,7 @@ on:
       - skills/**
       - web/**
       - requirements.txt
+      - constraints.txt
       - vendor/**
       - .github/workflows/daily.yml
   workflow_dispatch:
@@ -88,10 +89,12 @@ jobs:
           cache: pip
           cache-dependency-path: |
             requirements.txt
+            constraints.txt
             vendor/daily_stock_analysis/requirements.txt
 
       - name: Install Python dependencies
-        run: pip install -r vendor/daily_stock_analysis/requirements.txt -r requirements.txt pytest
+        # constraints.txt pins every package to the version of a known-good run.
+        run: pip install -c constraints.txt -r vendor/daily_stock_analysis/requirements.txt -r requirements.txt pytest
 
       - name: Test pipeline
         run: python -m pytest
@@ -197,7 +200,8 @@ jobs:
 
       - name: Install Claude Code
         if: steps.brief.outputs.claude == 'true'
-        run: npm install -g @anthropic-ai/claude-code
+        # Pinned for the same reason as constraints.txt; raise it deliberately.
+        run: npm install -g @anthropic-ai/claude-code@2.1.322
 
       - name: Write briefing
         if: steps.brief.outputs.write == 'true'

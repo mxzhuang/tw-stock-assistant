@@ -167,6 +167,23 @@ git add vendor/daily_stock_analysis
 git commit -m "chore(deps): bump daily_stock_analysis to <short sha>"
 ```
 
+## Updating pinned dependencies
+
+The workflow installs fixed versions, so a release published after a
+maintainer's account is taken over is not pulled in by the next scheduled run.
+
+- Python: `constraints.txt` lists the exact version of every package. To move
+  forward, delete the lines you want to update (or the whole list), run the
+  workflow once, and copy the versions from the "Successfully installed" line
+  of the *Install Python dependencies* step back into the file.
+- Claude Code: the version is written in the *Install Claude Code* step of
+  `.github/workflows/daily.yml`.
+- Web: `web/package-lock.json`, updated with `npm update` in `web/`.
+- GitHub Actions: each action is pinned to a commit in the workflow file.
+
+Check that the tests pass and one manual run with the "briefing" option works
+before relying on the new versions.
+
 ## Known limitations
 
 - Prices from Yahoo Finance are dividend-adjusted, so older bars can differ

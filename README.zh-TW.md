@@ -129,6 +129,17 @@ git add vendor/daily_stock_analysis
 git commit -m "chore(deps): bump daily_stock_analysis to <short sha>"
 ```
 
+## 更新鎖定的套件版本
+
+Workflow 裝的都是固定版本。萬一哪個套件的維護者帳號被盜、被發了帶毒的新版，排程下次執行時也不會裝到。
+
+- Python：`constraints.txt` 列出每個套件的確切版本。要更新時，把想更新的那幾行刪掉（或整份清空），手動跑一次 workflow，再從 *Install Python dependencies* 那一步的「Successfully installed」那行把版本抄回來。
+- Claude Code：版本寫在 `.github/workflows/daily.yml` 的 *Install Claude Code* 那一步。
+- 網站：`web/package-lock.json`，在 `web/` 底下執行 `npm update` 更新。
+- GitHub Actions：每個 action 都在 workflow 檔裡固定到某個 commit。
+
+換版本之後，先確認測試通過，再手動執行一次並勾選「briefing」，都正常才算完成。
+
 ## 已知限制
 
 - Yahoo Finance 的股價是還原權息之後的，比較早的 K 棒會跟多數券商 App 顯示的未還原價格不一樣。
