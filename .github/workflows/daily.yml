@@ -46,7 +46,7 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     # Shows the live site under "Deployments" on the repository page.
     environment:
       name: cloudflare-pages
@@ -211,8 +211,9 @@ jobs:
         if: steps.brief.outputs.write == 'true'
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          # Repository variable BRIEFING_MODEL overrides this (for example: opus).
-          BRIEFING_MODEL: ${{ vars.BRIEFING_MODEL || 'sonnet' }}
+          # Repository variable BRIEFING_MODEL overrides this (for example: sonnet,
+          # which uses less of the subscription's allowance).
+          BRIEFING_MODEL: ${{ vars.BRIEFING_MODEL || 'opus' }}
         run: |
           python -m pipeline.briefing \
             --profile "$SYNC_DIR/profile.json" \

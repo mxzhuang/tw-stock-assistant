@@ -128,9 +128,10 @@ Your site's address is printed at the end of each run and shown under
 **Deployments** on the repository page. It is `https://<repository-name>.pages.dev`
 when that name is free; if someone else already has it, Cloudflare adds a short
 suffix. To choose the name yourself, set a repository variable `PAGES_PROJECT`.
-The briefing uses Claude Sonnet by default; set a repository variable
-`BRIEFING_MODEL` (for example `opus`) to change it. If the chosen model is
-not available on your plan, the run falls back to Claude Code's default model.
+The briefing uses Claude Opus by default, which digs deeper into the news but
+uses more of your subscription's allowance. Set a repository variable
+`BRIEFING_MODEL` to `sonnet` for a lighter one. If the chosen model is not
+available on your plan, the run falls back to Claude Code's default model.
 
 ### Sync, briefings and notifications
 

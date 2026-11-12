@@ -98,7 +98,7 @@ cd web && npm ci --ignore-scripts && npm run dev
 
 網站的網址會印在每次執行的最後，repo 頁面的 **Deployments** 也看得到。名稱沒人用過的話，網址是 `https://<repo 名稱>.pages.dev`；已經被別人用掉時，Cloudflare 會在後面加一小段。想自己指定名稱，設一個 repository variable `PAGES_PROJECT`。
 
-摘要預設用 Claude Sonnet 寫。要換模型，設 repository variable `BRIEFING_MODEL`（例如 `opus`）。你的方案用不了指定的模型時，會退回 Claude Code 的預設模型。
+摘要預設用 Claude Opus 寫，消息查得比較深，但比較吃訂閱的用量。想省一點，設 repository variable `BRIEFING_MODEL` 為 `sonnet`。你的方案用不了指定的模型時，會退回 Claude Code 的預設模型。
 
 ### 同步、摘要與通知
 
