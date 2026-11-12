@@ -93,7 +93,7 @@ cd web && npm ci --ignore-scripts && npm run dev
 - `SYNC_PASSWORD`：自己取一組密碼，每台裝置只要輸入一次，所以請用又長又亂的（16 個字元以上，用密碼管理器產生最省事）。別人能不能看到、改到你的持股就靠這組密碼；猜錯太多次會被暫時鎖住，但太短的密碼還是猜得出來。
 - `CLAUDE_CODE_OAUTH_TOKEN`：在電腦上執行 `claude setup-token` 取得，需要有 Claude 訂閱。
 
-3. 到 Actions 頁面手動執行一次 **daily**。之後平日台北時間 08:30 和 14:40 會自動跑。
+3. 到 Actions 頁面手動執行一次 **daily**。之後平日台北時間 08:07 和 14:37 會自動跑。GitHub 的排程是有空檔才啟動，可能會晚，偶爾晚到幾個小時；急著要看就手動執行。
 4. 改 `config/universe.yaml` 和 `config/watchlist.yaml` 決定要分析什麼。需要改的只有這兩個檔案。
 
 網站的網址會印在每次執行的最後，repo 頁面的 **Deployments** 也看得到。名稱沒人用過的話，網址是 `https://<repo 名稱>.pages.dev`；已經被別人用掉時，Cloudflare 會在後面加一小段。想自己指定名稱，設一個 repository variable `PAGES_PROJECT`。

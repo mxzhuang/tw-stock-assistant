@@ -118,7 +118,9 @@ accounts. Nothing is shared with anyone else's copy.
   (needs a Claude subscription).
 
 3. Run the **daily** workflow once from the Actions tab. After that it runs on
-   weekdays at 08:30 and 14:40 Taipei time.
+   weekdays at 08:07 and 14:37 Taipei time. GitHub starts scheduled runs when
+   it has capacity, so they can be late, occasionally by hours; run the workflow
+   by hand when you need it now.
 4. Edit `config/universe.yaml` and `config/watchlist.yaml` to choose what is
    analysed. Those are the only files you need to change.
 
