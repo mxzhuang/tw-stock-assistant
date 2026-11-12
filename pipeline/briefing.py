@@ -46,8 +46,8 @@ PICK_UP = 0.60  # a liquid stock anywhere in the universe ...
 PICK_GAP = 0.20  # ... this far above its own usual level ...
 PICK_MAX_DOWN = 0.20  # ... with little chance of falling first
 WATCH_UP = 0.50  # a tracked stock leaning up needs less
-MAX_TEXT = 420
-CLAUDE_TIMEOUT = 720
+MAX_TEXT = 220
+CLAUDE_TIMEOUT = 540
 SECTIONS = ("holdings", "market", "events", "picks", "advice")
 ACTIONS = ("續抱", "觀察", "減碼", "出場")
 
@@ -315,7 +315,7 @@ def load_skills(root: Path = SKILLS_DIR) -> tuple[str, list[str]]:
     return "\n\n".join(blocks), names
 
 
-PROMPT = """你是一位謹慎的台股投資助理，要替一位新手投資人寫「{when}」的摘要。他是學生，資金不多，中長期持有，不融資、不當沖、不放空。
+PROMPT = """你是一位謹慎的台股投資助理，要替一位新手投資人寫「{when}」的簡短摘要。他是學生，資金不多，中長期持有，不融資、不當沖、不放空。
 
 ## 今天的數字
 
@@ -337,11 +337,7 @@ PROMPT = """你是一位謹慎的台股投資助理，要替一位新手投資�
 
 ## 步驟
 
-1. 先用 WebSearch 把消息面查清楚。至少查 8 次，最多 15 次，一次查一個主題，不要只查指數漲跌：
-   a. 掃頭條：{news_focus}。再各查一次「台股 重大新聞」和「美股 科技股 半導體 最新消息」，把市場正在反應的事件列出來。人事變動、醜聞、調查、官司、政策、關稅、地緣政治，還有大廠負責人（輝達、台積電、蘋果這類）的發言，只要股價有反應就算，不限於財報和經濟數據。
-   b. 追下去：從 a 挑影響最大的兩三件，各再查一次最新進展和市場反應，確認日期、來源和幅度。前幾天發生、現在還在發酵的事也要算，寫出目前進展到哪裡。
-   c. 持股：他的每一檔都用「公司名稱 新聞」查一次；查不到直接相關的消息，就查它所屬的產業或主要客戶。
-   d. 你打算放進 picks 的標的各查一次；接下來一週會影響台股的事件（法說會、財報、央行、重要經濟數據）查一次。
+1. 用 WebSearch 查（各查一兩次就好）：{news_focus}；他每一檔持股最近的重大消息（財報、除息、法說、產業事件）；你打算放進 picks 的標的有沒有要注意的消息；接下來幾天會影響台股的事件（法說會、財報、央行、重要經濟數據）。
 2. 照上面的方法分析。
 3. 只輸出一個 JSON 物件，不要有其他文字、不要用程式碼區塊：
 
@@ -356,9 +352,8 @@ PROMPT = """你是一位謹慎的台股投資助理，要替一位新手投資�
 
 ## 規則
 
-- 用台灣人平常講話的繁體中文，直接、口語、不要術語堆疊。holdings 和 market 的 text 最多 200 個字，其他的最多 100 個字。
-- holdings 和 market 要講到因果，不能一句話帶過：發生了什麼（日期、幅度）、市場為什麼在意、怎麼影響到台股或這一檔、接下來要看什麼（日期或價位）。「受美股影響下跌」這種寫法不算。持股沒有直接的消息時，寫它所屬產業或主要客戶的消息；真的都沒有才說沒有。
-- holdings 要涵蓋他的每一檔持股；market 3 到 5 則，依影響大小排序，消息面的大事要排在單純的指數漲跌前面；events 0 到 4 則，查不到確定日期的不要寫；picks 最多 3 檔，只能從 JSON 的 picks 或 watch 裡挑，沒有好的就給空陣列；advice 1 到 3 則。
+- 用台灣人平常講話的繁體中文，直接、口語、不要術語堆疊。每個 text 不超過 100 個字。
+- holdings 要涵蓋他的每一檔持股；market 2 到 4 則，依影響大小排序；events 0 到 4 則，查不到確定日期的不要寫；picks 最多 3 檔，只能從 JSON 的 picks 或 watch 裡挑，沒有好的就給空陣列；advice 1 到 3 則。
 - 數字只能用 JSON 裡的或你查到並確定的，不要自己編。查不到消息就說沒有特別消息，不要硬湊。
 - JSON 裡是 null 的欄位代表資料缺漏（例如 day_pct 是 null 表示今天的漲跌幅算不出來），不要寫出那個數字，也不要自己推算。
 - 建議要具體（例如「跌破多少要重新考慮」「現在不用動」），但不能保證獲利，也不要叫他借錢或重押單一標的。機率不高或訊號不明時就直說看不出方向。
@@ -423,7 +418,7 @@ def _answering_model(usage: object, requested: str) -> str:
 
 def _run_claude(cli: str, prompt: str, model: str, facts: dict) -> tuple[dict | None, str]:
     """One headless Claude Code call. Returns the parsed briefing and the model that answered."""
-    command = [cli, "-p", prompt, "--output-format", "json", "--allowedTools", "WebSearch", "--max-turns", "40"]
+    command = [cli, "-p", prompt, "--output-format", "json", "--allowedTools", "WebSearch", "--max-turns", "24"]
     if model:
         command += ["--model", model]
     env = {k: v for k, v in os.environ.items() if k in ("PATH", "HOME", "LANG", TOKEN_ENV)}
