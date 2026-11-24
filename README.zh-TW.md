@@ -88,12 +88,14 @@ cd web && npm ci --ignore-scripts && npm run dev
 | `CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID` | 一個你自己的公開網站，有圖表、選股、機率和盤中報價 |
 | 再加 `SYNC_PASSWORD` | 持股和追蹤清單跨裝置同步、個人化的摘要、風險通知 |
 | 再加 `CLAUDE_CODE_OAUTH_TOKEN` | 摘要改由 Claude Code 撰寫，會查當天新聞，並參考公開的財經 skill（見 `skills/README.md`） |
+| 再加 `GH_DISPATCH_TOKEN` | 準時更新：Cloudflare 上的定時器在平日 08:15 和 14:40 啟動 workflow，不用等 GitHub 的排程 |
 
 - Cloudflare token：dashboard → My Profile → API Tokens，權限要有 *Account → Cloudflare Pages → Edit*。要用同步的話再加 *Account → Workers KV Storage → Edit*。Account ID 在 Workers & Pages 頁面看得到。
 - `SYNC_PASSWORD`：自己取一組密碼，每台裝置只要輸入一次，所以請用又長又亂的（16 個字元以上，用密碼管理器產生最省事）。別人能不能看到、改到你的持股就靠這組密碼；猜錯太多次會被暫時鎖住，但太短的密碼還是猜得出來。
 - `CLAUDE_CODE_OAUTH_TOKEN`：在電腦上執行 `claude setup-token` 取得，需要有 Claude 訂閱。
+- `GH_DISPATCH_TOKEN`：GitHub → Settings → Developer settings → Fine-grained tokens 建一組，Repository access 只選這個 repo，Permissions 只開 *Actions → Read and write*。Cloudflare token 也要多開 *Account → Workers Scripts → Edit*，workflow 才能在你的帳號放一個叫 `<站名>-timer` 的 Worker。token 會過期，記得到期前換一組新的。
 
-3. 到 Actions 頁面手動執行一次 **daily**。之後平日台北時間 08:07 和 14:37 會自動跑。GitHub 的排程是有空檔才啟動，可能會晚，偶爾晚到幾個小時；急著要看就手動執行。
+3. 到 Actions 頁面手動執行一次 **daily**。之後平日台北時間 08:07 和 14:37 會自動跑。GitHub 的排程是有空檔才啟動，常常晚好幾個小時，晚到美股收盤前就寫完「開盤前」摘要也有可能；要準時就設 `GH_DISPATCH_TOKEN`。設了定時器之後 GitHub 的排程還是會跑，但如果定時器那次已經跑過，它會直接結束，不會重寫摘要；定時器壞掉時就靠它補上。
 4. 改 `config/universe.yaml` 和 `config/watchlist.yaml` 決定要分析什麼。需要改的只有這兩個檔案。
 
 網站的網址會印在每次執行的最後，repo 頁面的 **Deployments** 也看得到。名稱沒人用過的話，網址是 `https://<repo 名稱>.pages.dev`；已經被別人用掉時，Cloudflare 會在後面加一小段。想自己指定名稱，設一個 repository variable `PAGES_PROJECT`。

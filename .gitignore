@@ -24,3 +24,4 @@ web/public/data/
 .idea/
 .vscode/
 web/wrangler.toml
+web/timer/wrangler.toml

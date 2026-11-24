@@ -44,7 +44,47 @@ env:
   PROJECT_OVERRIDE: ${{ vars.PAGES_PROJECT }}
 
 jobs:
+  # GitHub often starts the scheduled runs hours late. When the on-time timer
+  # (a Cloudflare Worker, see the last step) or a person has already started a
+  # manual run since the slot's time, the late scheduled run stands down, so
+  # the briefing is not written twice. Without the timer nothing changes.
+  gate:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+    outputs:
+      run: ${{ steps.check.outputs.run }}
+    steps:
+      - name: Check whether this slot already ran
+        id: check
+        env:
+          EVENT: ${{ github.event_name }}
+          CRON: ${{ github.event.schedule }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$EVENT" != "schedule" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # The slot's last Taipei time, from the cron that fired ("7 8 * * 1-5").
+          read -r minute hour _ <<< "$CRON"
+          now="$(date +%s)"
+          slot="$(TZ=Asia/Taipei date -d "today $hour:$minute" +%s)"
+          [ "$slot" -gt "$now" ] && slot=$((slot - 86400))
+          since="$(date -u -d "@$((slot - 900))" +%Y-%m-%dT%H:%M:%SZ)"
+          done_runs="$(gh api -X GET "repos/$GITHUB_REPOSITORY/actions/workflows/daily.yml/runs" \
+            -f event=workflow_dispatch -f created=">=$since" -f per_page=20 \
+            --jq '[.workflow_runs[] | select(.conclusion == "success" or .status != "completed")] | length' || echo 0)"
+          if [ "${done_runs:-0}" -gt 0 ]; then
+            echo "::notice::A manual or timer run already started after $since; this late scheduled run stands down."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
   build:
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     # Shows the live site under "Deployments" on the repository page.
@@ -275,3 +315,41 @@ jobs:
           fi
           (cd web && npx wrangler kv key put briefing --path "$new" --namespace-id "$SYNC_ID" --remote > /dev/null)
           python -m pipeline.briefing --notify --private-out "$new" --push "$SYNC_DIR/push.json"
+
+      # Optional on-time timer. GitHub's schedule above often starts hours late
+      # (see the gate job). With GH_DISPATCH_TOKEN set, a Cloudflare Worker named
+      # <site>-timer starts this workflow at 08:15 and 14:40 Taipei time on
+      # weekdays. Deployed on a push or a manual run without a new briefing, not
+      # on every run, because changing Cron Triggers can skip the next one.
+      - name: Deploy the on-time timer
+        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.briefing != true)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          GH_DISPATCH_TOKEN: ${{ secrets.GH_DISPATCH_TOKEN }}
+        working-directory: web
+        run: |
+          if [ -z "$GH_DISPATCH_TOKEN" ] || [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::notice::On-time timer is off (needs GH_DISPATCH_TOKEN and the Cloudflare secrets); GitHub's schedule is used."
+            exit 0
+          fi
+          # Cron Triggers run on UTC: 00:15 and 06:40 UTC are 08:15 and 14:40 in Taipei.
+          cat > timer/wrangler.toml <<TOML
+          name = "$PAGES_PROJECT-timer"
+          main = "worker.js"
+          compatibility_date = "2026-01-01"
+          workers_dev = false
+
+          [vars]
+          REPO = "$GITHUB_REPOSITORY"
+          BRANCH = "main"
+
+          [triggers]
+          crons = ["15 0 * * mon-fri", "40 6 * * mon-fri"]
+          TOML
+          if ! npx wrangler deploy --config timer/wrangler.toml; then
+            echo "::error::Could not deploy the timer. Does the Cloudflare API token have 'Workers Scripts: Edit'?"
+            exit 1
+          fi
+          printf '%s' "$GH_DISPATCH_TOKEN" | npx wrangler secret put GH_DISPATCH_TOKEN --config timer/wrangler.toml > /dev/null
+          echo "::notice::On-time timer deployed: $PAGES_PROJECT-timer (08:15 and 14:40 Taipei time, weekdays)."

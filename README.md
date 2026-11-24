@@ -105,6 +105,7 @@ accounts. Nothing is shared with anyone else's copy.
 | `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | A public site of your own with charts, screener, forecast and intraday quotes |
 | + `SYNC_PASSWORD` | Holdings and tracking list synced across your devices, a personal briefing, and risk notifications |
 | + `CLAUDE_CODE_OAUTH_TOKEN` | Briefings written by Claude Code with current news, following published finance skills (see `skills/README.md`) |
+| + `GH_DISPATCH_TOKEN` | On-time updates: a timer in Cloudflare starts the workflow at 08:15 and 14:40 on weekdays instead of waiting for GitHub's schedule |
 
 - **Cloudflare token**: dashboard → My Profile → API Tokens, with
   *Account → Cloudflare Pages → Edit*. For sync also add
@@ -116,11 +117,19 @@ accounts. Nothing is shared with anyone else's copy.
   wrong guesses are rate-limited, but a short password can still be guessed.
 - **`CLAUDE_CODE_OAUTH_TOKEN`**: run `claude setup-token` on your computer
   (needs a Claude subscription).
+- **`GH_DISPATCH_TOKEN`**: a fine-grained token (GitHub → Settings → Developer
+  settings → Fine-grained tokens) with access to this repository only and
+  *Actions → Read and write*. Also give the Cloudflare token
+  *Account → Workers Scripts → Edit*, so the workflow can add a Worker named
+  `<site>-timer` to your account. The token expires; replace it before then.
 
 3. Run the **daily** workflow once from the Actions tab. After that it runs on
    weekdays at 08:07 and 14:37 Taipei time. GitHub starts scheduled runs when
-   it has capacity, so they can be late, occasionally by hours; run the workflow
-   by hand when you need it now.
+   it has capacity, and they are often hours late, sometimes late enough that
+   the "before the open" briefing is written before Wall Street closes. Set
+   `GH_DISPATCH_TOKEN` for on-time runs. GitHub's schedule then stays as a
+   fallback: a late scheduled run stands down when the timer's run already
+   happened, and takes over if the timer fails.
 4. Edit `config/universe.yaml` and `config/watchlist.yaml` to choose what is
    analysed. Those are the only files you need to change.
 
