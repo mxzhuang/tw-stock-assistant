@@ -238,3 +238,12 @@ def test_helper_models_are_not_reported_as_the_author():
     assert briefing._answering_model(usage, "") == ""  # ambiguous without a request
     assert briefing._answering_model({"claude-sonnet-5-5": {}}, "") == "claude-sonnet-5-5"
     assert briefing._answering_model(None, "opus") == ""
+
+
+def test_limit_moves_reach_the_prompt_with_how_to_read_them(tmp_path):
+    index = {**INDEX, "stocks": [{**s, "limit": "locked_up"} if s["kind"] != "index" else s for s in INDEX["stocks"]]}
+    facts = briefing.gather(index, loaded(tmp_path))
+    assert all(h["limit"] == "locked_up" for h in facts["holdings"])
+    prompt, _ = briefing.build_prompt(facts, "post")
+    assert '"limit": "locked_up"' in prompt
+    assert "不能寫成量縮" in prompt and "漲停打開那天的量" in prompt

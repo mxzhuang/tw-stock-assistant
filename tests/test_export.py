@@ -121,3 +121,21 @@ def test_change_is_withheld_when_the_previous_bar_is_missing():
     assert summarize(gappy)["change_pct"] == 5.9  # without the calendar there is no way to tell
     behind = payload([("2026-11-07", 96.0), ("2026-11-09", 97.45)])
     assert summarize(behind, session)["change_pct"] == 1.51  # an older bar is still a true one-day change
+
+
+def test_price_limit_tells_a_locked_limit_from_an_ordinary_day():
+    from pipeline.export import price_limit
+
+    def bar(o, h, lo, c):
+        return {"open": o, "high": h, "low": lo, "close": c}
+
+    prev = {"close": 50.0}
+    assert price_limit(bar(55.0, 55.0, 55.0, 55.0), prev) == "locked_up"
+    assert price_limit(bar(51.0, 55.0, 50.5, 55.0), prev) == "closed_up"
+    assert price_limit(bar(53.0, 55.0, 52.0, 54.0), prev) is None  # touched the limit, closed below it
+    assert price_limit(bar(45.0, 45.0, 45.0, 45.0), prev) == "locked_down"
+    assert price_limit(bar(49.0, 49.5, 45.0, 45.0), prev) == "closed_down"
+    assert price_limit(bar(51.0, 52.0, 50.0, 51.5), prev) is None
+    # The limit price is rounded down to the tick, so a limit move can be a little under 10%.
+    assert price_limit(bar(10.95, 10.95, 10.95, 10.95), {"close": 9.99}) == "locked_up"
+    assert price_limit(bar(55.0, 55.0, 55.0, 55.0), None) is None

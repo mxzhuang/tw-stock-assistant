@@ -136,6 +136,32 @@ def _pct(new: float | None, old: float | None) -> float | None:
     return round((new - old) / old * 100, 2)
 
 
+# Taiwan stocks and ETFs move at most 10% a day; the limit price is rounded to
+# the tick, so a limit move shows as roughly 9.5% to 10%.
+LIMIT_MOVE_PCT = 9.5
+
+
+def price_limit(last: dict, prev: dict | None) -> str | None:
+    """Whether the bar closed at the daily price limit.
+
+    "locked_up" / "locked_down": one price all day (open, high, low and close
+    equal), so the stock was stuck at the limit from the open. Volume on such a
+    day is small because almost nobody would sell (or buy), which is not the
+    weak volume it looks like. "closed_up" / "closed_down": traded through the
+    day and closed at the limit.
+    """
+    change = _pct(last["close"], prev["close"] if prev else None)
+    if change is None or abs(change) < LIMIT_MOVE_PCT:
+        return None
+    close = last["close"]
+    tol = close * 1e-6
+    side = "up" if change > 0 else "down"
+    if abs(close - (last["high"] if side == "up" else last["low"])) > tol:
+        return None
+    one_price = all(abs(last[k] - close) <= tol for k in ("open", "high", "low"))
+    return f"{'locked' if one_price else 'closed'}_{side}"
+
+
 def summarize(payload: dict, session: tuple[str, str] | None = None) -> dict:
     """One row for the index file.
 
@@ -166,6 +192,7 @@ def summarize(payload: dict, session: tuple[str, str] | None = None) -> dict:
         "last_close": last["close"],
         "change_pct": _pct(last["close"], prev["close"] if prev else None),
         "month_pct": _pct(last["close"], month_ago["close"] if month_ago else None),
+        "limit": price_limit(last, prev) if payload["kind"] != "index" else None,
         "spark": [c["close"] for c in candles[-SPARK_BARS:]],
         "recent_patterns": recent,
         "avg_volume_lots": payload["avg_volume_lots"],
