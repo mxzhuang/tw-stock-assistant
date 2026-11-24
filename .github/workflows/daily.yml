@@ -347,8 +347,15 @@ jobs:
           [triggers]
           crons = ["15 0 * * mon-fri", "40 6 * * mon-fri"]
           TOML
-          if ! npx wrangler deploy --config timer/wrangler.toml; then
-            echo "::error::Could not deploy the timer. Does the Cloudflare API token have 'Workers Scripts: Edit'?"
+          code=0
+          npx wrangler deploy --config timer/wrangler.toml > "$RUNNER_TEMP/timer.log" 2>&1 || code=$?
+          cat "$RUNNER_TEMP/timer.log"
+          if [ "$code" -ne 0 ]; then
+            if grep -q "workers.dev subdomain" "$RUNNER_TEMP/timer.log"; then
+              echo "::error::Cron Triggers need a workers.dev subdomain. Open Workers & Pages in the Cloudflare dashboard once (or set the subdomain under its settings), then run this workflow by hand."
+            else
+              echo "::error::Could not deploy the timer. Does the Cloudflare API token have 'Workers Scripts: Edit'?"
+            fi
             exit 1
           fi
           printf '%s' "$GH_DISPATCH_TOKEN" | npx wrangler secret put GH_DISPATCH_TOKEN --config timer/wrangler.toml > /dev/null

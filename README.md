@@ -121,7 +121,9 @@ accounts. Nothing is shared with anyone else's copy.
   settings → Fine-grained tokens) with access to this repository only and
   *Actions → Read and write*. Also give the Cloudflare token
   *Account → Workers Scripts → Edit*, so the workflow can add a Worker named
-  `<site>-timer` to your account. The token expires; replace it before then.
+  `<site>-timer` to your account. Cron Triggers need a workers.dev subdomain;
+  if your account has none yet, open Workers & Pages in the dashboard once and
+  it is created for you. The token expires; replace it before then.
 
 3. Run the **daily** workflow once from the Actions tab. After that it runs on
    weekdays at 08:07 and 14:37 Taipei time. GitHub starts scheduled runs when
